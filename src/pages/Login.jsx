@@ -7,11 +7,21 @@ import {
 	Lock,
 	LogIn,
 	Mail,
-	Sparkles,
+	ShoppingBag,
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import toast from "react-hot-toast"
 import { Link, useNavigate } from "react-router-dom"
+import { Button } from "../components/ui/button"
+import {
+	Card,
+	CardContent,
+	CardFooter,
+	CardHeader,
+} from "../components/ui/card"
+import { Checkbox } from "../components/ui/checkbox"
+import { Input } from "../components/ui/input"
+import { Label } from "../components/ui/label"
 import { API } from "../config/api"
 
 function Login() {
@@ -120,106 +130,181 @@ function Login() {
 	return (
 		<div
 			ref={containerRef}
-			className='min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center p-4 relative overflow-hidden'
+			className='min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-emerald-50 flex relative overflow-hidden'
 		>
-			{/* Background Elements */}
+			{/* Background Decorations */}
 			<div className='absolute inset-0 overflow-hidden'>
-				<div className='float-element absolute top-20 left-20 w-32 h-32 bg-pink-500/20 rounded-full blur-3xl' />
-				<div className='float-element absolute bottom-20 right-20 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl' />
-				<div className='float-element absolute top-1/2 left-1/3 w-24 h-24 bg-blue-500/20 rounded-full blur-3xl' />
+				<div className='float-element absolute top-20 left-20 w-72 h-72 bg-purple-300/30 rounded-full blur-3xl' />
+				<div className='float-element absolute bottom-20 right-20 w-96 h-96 bg-emerald-300/30 rounded-full blur-3xl' />
+				<div className='float-element absolute top-1/2 left-1/3 w-64 h-64 bg-amber-300/20 rounded-full blur-3xl' />
 			</div>
 
-			{/* Login Card */}
-			<div className='w-full max-w-md relative z-10'>
-				{/* Logo */}
-				<div ref={logoRef} className='text-center mb-8'>
-					<div className='w-20 h-20 bg-gradient-to-br from-pink-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-2xl shadow-pink-500/30'>
-						<Sparkles className='w-10 h-10 text-white' />
+			{/* Left Side - Branding */}
+			<div className='hidden lg:flex lg:w-1/2 items-center justify-center p-12 relative'>
+				<div className='max-w-lg text-center'>
+					{/* Logo */}
+					<div className='w-24 h-24 bg-gradient-to-br from-purple-600 to-emerald-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-purple-500/30'>
+						<ShoppingBag className='w-12 h-12 text-white' />
 					</div>
-					<h1 className='text-3xl font-bold text-white mb-2'>Admin Panel</h1>
-					<p className='text-gray-400'>Cosmetic Shop boshqaruvi</p>
-				</div>
+					<h1 className='text-4xl font-bold text-slate-800 mb-4'>
+						Uzum Market
+					</h1>
+					<p className='text-lg text-slate-600 mb-8'>
+						Admin panelga kirish uchun o'z hisobingizdan foydalaning.
+						Mahsulotlarni boshqarish, buyurtmalarni kuzatish va ko'proq
+						imkoniyatlar.
+					</p>
 
-				{/* Form */}
-				<form
-					ref={formRef}
-					onSubmit={handleLogin}
-					className='bg-white/10 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/10 space-y-6'
-				>
-					{/* Email Input */}
-					<div className='form-input space-y-2'>
-						<label className='text-sm text-gray-300 font-medium'>Email</label>
-						<div className='relative'>
-							<Mail className='absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400' />
-							<input
-								type='email'
-								placeholder='admin@example.com'
-								value={email}
-								onChange={(e) => setEmail(e.target.value)}
-								className='w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 transition-all input-focus'
-								required
-							/>
-						</div>
-					</div>
-
-					{/* Password Input */}
-					<div className='form-input space-y-2'>
-						<label className='text-sm text-gray-300 font-medium'>Parol</label>
-						<div className='relative'>
-							<Lock className='absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400' />
-							<input
-								type={showPassword ? "text" : "password"}
-								placeholder='••••••••'
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
-								className='w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-12 text-white placeholder-gray-500 focus:outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 transition-all input-focus'
-								required
-							/>
-							<button
-								type='button'
-								onClick={() => setShowPassword(!showPassword)}
-								className='absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition'
+					{/* Features */}
+					<div className='grid grid-cols-2 gap-4 text-left'>
+						{[
+							{ title: "Mahsulotlar", desc: "Boshqarish va qo'shish" },
+							{ title: "Statistika", desc: "Sotuvlar tahlili" },
+							{ title: "Buyurtmalar", desc: "Kuzatish va tasdiqlash" },
+							{ title: "Xavfsizlik", desc: "Himoyalangan kirish" },
+						].map((item, i) => (
+							<Card
+								key={i}
+								className='bg-white/60 backdrop-blur-sm border-white'
 							>
-								{showPassword ? (
-									<EyeOff className='w-5 h-5' />
-								) : (
-									<Eye className='w-5 h-5' />
-								)}
-							</button>
+								<CardContent className='p-4'>
+									<h3 className='font-semibold text-slate-800'>{item.title}</h3>
+									<p className='text-sm text-slate-500'>{item.desc}</p>
+								</CardContent>
+							</Card>
+						))}
+					</div>
+				</div>
+			</div>
+
+			{/* Right Side - Login Form */}
+			<div className='w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12'>
+				<div className='w-full max-w-md relative z-10'>
+					{/* Mobile Logo */}
+					<div ref={logoRef} className='text-center mb-8 lg:hidden'>
+						<div className='w-16 h-16 bg-gradient-to-br from-purple-600 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-purple-500/30'>
+							<ShoppingBag className='w-8 h-8 text-white' />
 						</div>
+						<h1 className='text-2xl font-bold text-slate-800'>Uzum Market</h1>
+						<p className='text-slate-500 text-sm'>Admin Panel</p>
 					</div>
 
-					{/* Login Button */}
-					<button
-						type='submit'
-						disabled={loading}
-						className='login-btn w-full py-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg shadow-pink-500/30 flex items-center justify-center gap-2 hover:shadow-xl hover:shadow-pink-500/40 transition-all disabled:opacity-70 disabled:cursor-not-allowed btn-shine'
-					>
-						{loading ? (
-							<>
-								<div className='w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin' />
-								Kirish...
-							</>
-						) : (
-							<>
-								<LogIn className='w-5 h-5' />
-								Kirish
-							</>
-						)}
-					</button>
-				</form>
+					{/* Form Card */}
+					<Card ref={formRef} className='shadow-xl shadow-slate-200/50'>
+						<CardHeader className='text-center pb-2'>
+							<h2 className='text-2xl font-bold text-slate-800 mb-2'>
+								Xush kelibsiz!
+							</h2>
+							<p className='text-slate-500'>
+								Hisobingizga kirish uchun ma'lumotlarni kiriting
+							</p>
+						</CardHeader>
 
-				{/* Footer */}
-				<div className='text-center mt-6 space-y-3'>
-					<Link
-						to='/'
-						className='inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors'
-					>
-						<ArrowLeft className='w-4 h-4' />
-						Do'konga qaytish
-					</Link>
-					<p className='text-gray-500 text-sm'>
-						© 2026 Cosmetic Shop. Barcha huquqlar himoyalangan.
+						<form onSubmit={handleLogin}>
+							<CardContent className='space-y-6'>
+								{/* Email Input */}
+								<div className='form-input space-y-2'>
+									<Label htmlFor='email'>Email manzil</Label>
+									<div className='relative'>
+										<Mail className='absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400' />
+										<Input
+											id='email'
+											type='email'
+											value={email}
+											onChange={(e) => setEmail(e.target.value)}
+											placeholder='admin@example.com'
+											className='pl-12 h-14'
+										/>
+									</div>
+								</div>
+
+								{/* Password Input */}
+								<div className='form-input space-y-2'>
+									<Label htmlFor='password'>Parol</Label>
+									<div className='relative'>
+										<Lock className='absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400' />
+										<Input
+											id='password'
+											type={showPassword ? "text" : "password"}
+											value={password}
+											onChange={(e) => setPassword(e.target.value)}
+											placeholder='••••••••'
+											className='pl-12 pr-12 h-14'
+										/>
+										<Button
+											type='button'
+											variant='ghost'
+											size='icon'
+											onClick={() => setShowPassword(!showPassword)}
+											className='absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600'
+										>
+											{showPassword ? (
+												<EyeOff className='w-5 h-5' />
+											) : (
+												<Eye className='w-5 h-5' />
+											)}
+										</Button>
+									</div>
+								</div>
+
+								{/* Remember Me & Forgot */}
+								<div className='flex items-center justify-between'>
+									<div className='flex items-center space-x-2'>
+										<Checkbox id='remember' />
+										<Label
+											htmlFor='remember'
+											className='text-sm font-normal cursor-pointer'
+										>
+											Eslab qolish
+										</Label>
+									</div>
+									<a
+										href='#'
+										className='text-sm text-purple-600 hover:text-purple-700 font-medium'
+									>
+										Parolni unutdingizmi?
+									</a>
+								</div>
+							</CardContent>
+
+							<CardFooter className='flex flex-col gap-4'>
+								{/* Submit Button */}
+								<Button
+									type='submit'
+									disabled={loading}
+									className='login-btn w-full h-14 bg-gradient-to-r from-purple-600 to-emerald-500 hover:from-purple-700 hover:to-emerald-600 text-lg'
+								>
+									{loading ? (
+										<>
+											<div className='w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2' />
+											Kirilmoqda...
+										</>
+									) : (
+										<>
+											<LogIn className='w-5 h-5 mr-2' />
+											Kirish
+										</>
+									)}
+								</Button>
+
+								{/* Back to Shop */}
+								<Link
+									to='/'
+									className='inline-flex items-center gap-2 text-slate-500 hover:text-purple-600 transition-colors'
+								>
+									<ArrowLeft className='w-4 h-4' />
+									Do'konga qaytish
+								</Link>
+							</CardFooter>
+						</form>
+					</Card>
+
+					{/* Help Text */}
+					<p className='text-center text-sm text-slate-500 mt-6'>
+						Muammo bormi?{" "}
+						<a href='#' className='text-purple-600 hover:underline'>
+							Yordam olish
+						</a>
 					</p>
 				</div>
 			</div>

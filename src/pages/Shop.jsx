@@ -2,23 +2,56 @@ import axios from "axios"
 import gsap from "gsap"
 import {
 	ArrowRight,
-	ChevronRight,
+	ChevronDown,
+	Eye,
+	Grid,
+	HeadphonesIcon,
 	Heart,
+	List,
 	Minus,
 	Package,
 	Plus,
 	Search,
-	Settings,
+	Shield,
+	ShoppingBag,
 	ShoppingCart,
 	Sparkles,
 	Star,
 	Trash2,
-	X,
+	Truck,
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import toast from "react-hot-toast"
 import { useNavigate } from "react-router-dom"
-import { API, getImageUrl } from "../config/api"
+import Footer from "../components/Footer"
+import Layout from "../components/Layout"
+import Navbar from "../components/Navbar"
+import { Badge } from "../components/ui/badge"
+import { Button } from "../components/ui/button"
+import { Card, CardContent } from "../components/ui/card"
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "../components/ui/dialog"
+import { Input } from "../components/ui/input"
+import { ScrollArea } from "../components/ui/scroll-area"
+import { Separator } from "../components/ui/separator"
+import {
+	Sheet,
+	SheetContent,
+	SheetFooter,
+	SheetHeader,
+	SheetTitle,
+} from "../components/ui/sheet"
+import { Skeleton } from "../components/ui/skeleton"
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "../components/ui/tooltip"
+import { API } from "../config/api"
 
 function Shop() {
 	const [products, setProducts] = useState([])
@@ -28,11 +61,13 @@ function Shop() {
 	const [selectedProduct, setSelectedProduct] = useState(null)
 	const [searchTerm, setSearchTerm] = useState("")
 	const [favorites, setFavorites] = useState([])
+	const [viewMode, setViewMode] = useState("grid")
+	const [sortBy, setSortBy] = useState("newest")
 
 	const navigate = useNavigate()
 
 	// Refs for animations
-	const headerRef = useRef(null)
+	const heroRef = useRef(null)
 	const productsRef = useRef(null)
 	const cartBtnRef = useRef(null)
 	const cartPanelRef = useRef(null)
@@ -77,25 +112,66 @@ function Shop() {
 	// GSAP Animations
 	useEffect(() => {
 		if (!loading && products.length > 0) {
-			const tl = gsap.timeline()
+			// Hero animation
+			const heroTl = gsap.timeline()
+			heroTl
+				.fromTo(
+					".hero-title",
+					{ opacity: 0, y: 50 },
+					{ opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }
+				)
+				.fromTo(
+					".hero-subtitle",
+					{ opacity: 0, y: 30 },
+					{ opacity: 1, y: 0, duration: 0.6, ease: "power3.out" },
+					"-=0.4"
+				)
+				.fromTo(
+					".hero-cta",
+					{ opacity: 0, y: 20 },
+					{ opacity: 1, y: 0, duration: 0.5, ease: "power3.out" },
+					"-=0.3"
+				)
+				.fromTo(
+					".hero-image",
+					{ opacity: 0, scale: 0.8, x: 50 },
+					{ opacity: 1, scale: 1, x: 0, duration: 1, ease: "power3.out" },
+					"-=0.8"
+				)
+				.fromTo(
+					".feature-card",
+					{ opacity: 0, y: 30 },
+					{ opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: "power3.out" },
+					"-=0.5"
+				)
 
-			tl.fromTo(
-				headerRef.current,
-				{ opacity: 0, y: -30 },
-				{ opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }
-			).fromTo(
-				".product-item",
+			// Products animation
+			gsap.fromTo(
+				".product-card",
 				{ opacity: 0, y: 40, scale: 0.95 },
 				{
 					opacity: 1,
 					y: 0,
 					scale: 1,
-					duration: 0.5,
+					duration: 0.6,
 					stagger: 0.08,
 					ease: "back.out(1.4)",
-				},
-				"-=0.3"
+					scrollTrigger: {
+						trigger: productsRef.current,
+						start: "top 80%",
+					},
+				}
 			)
+
+			// Floating animations
+			gsap.to(".floating-shape", {
+				y: -20,
+				duration: 2,
+				repeat: -1,
+				yoyo: true,
+				ease: "sine.inOut",
+				stagger: 0.5,
+			})
 		}
 	}, [loading, products])
 
@@ -116,6 +192,40 @@ function Shop() {
 		}
 	}, [cart.length])
 
+	// Cart panel animation
+	useEffect(() => {
+		if (isCartOpen && cartPanelRef.current) {
+			gsap.fromTo(
+				cartPanelRef.current,
+				{ x: "100%", opacity: 0 },
+				{ x: 0, opacity: 1, duration: 0.4, ease: "power3.out" }
+			)
+			gsap.fromTo(
+				".cart-item",
+				{ x: 50, opacity: 0 },
+				{
+					x: 0,
+					opacity: 1,
+					duration: 0.4,
+					stagger: 0.1,
+					ease: "power3.out",
+					delay: 0.2,
+				}
+			)
+		}
+	}, [isCartOpen])
+
+	// Product modal animation
+	useEffect(() => {
+		if (selectedProduct && productModalRef.current) {
+			gsap.fromTo(
+				productModalRef.current,
+				{ opacity: 0, scale: 0.9, y: 50 },
+				{ opacity: 1, scale: 1, y: 0, duration: 0.4, ease: "back.out(1.7)" }
+			)
+		}
+	}, [selectedProduct])
+
 	const fetchProducts = async () => {
 		try {
 			const res = await axios.get(API.PRODUCTS.GET_ALL)
@@ -128,10 +238,35 @@ function Shop() {
 		}
 	}
 
-	// Filter products by search
-	const filteredProducts = products.filter((product) =>
-		product.name.toLowerCase().includes(searchTerm.toLowerCase())
-	)
+	// Get image URL
+	const getImageUrl = (imagePath) => {
+		if (!imagePath) return "https://via.placeholder.com/300x300?text=No+Image"
+		if (imagePath.startsWith("http")) return imagePath
+		return `${API.UPLOADS}/${imagePath}`
+	}
+
+	// Format price
+	const formatPrice = (price) => {
+		return new Intl.NumberFormat("uz-UZ").format(price)
+	}
+
+	// Filter and sort products
+	const filteredProducts = products
+		.filter((product) =>
+			product.name.toLowerCase().includes(searchTerm.toLowerCase())
+		)
+		.sort((a, b) => {
+			switch (sortBy) {
+				case "price-low":
+					return a.price - b.price
+				case "price-high":
+					return b.price - a.price
+				case "name":
+					return a.name.localeCompare(b.name)
+				default:
+					return new Date(b.createdAt) - new Date(a.createdAt)
+			}
+		})
 
 	const toggleFavorite = (productId) => {
 		if (favorites.includes(productId)) {
@@ -199,516 +334,896 @@ function Shop() {
 		(sum, item) => sum + Number(item.price) * item.quantity,
 		0
 	)
+
 	const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
 
-	const handleCheckout = () => {
+	// Send order to Telegram
+	const sendOrder = () => {
+		if (cart.length === 0) {
+			toast.error("Savat bo'sh!")
+			return
+		}
+
 		if (tg) {
+			let orderText = "🛒 *Yangi buyurtma!*\n\n"
+			cart.forEach((item, index) => {
+				orderText += `${index + 1}. *${item.name}*\n`
+				orderText += `   📦 ${item.quantity} dona × ${formatPrice(
+					item.price
+				)} so'm\n`
+				orderText += `   💰 Jami: ${formatPrice(
+					item.price * item.quantity
+				)} so'm\n\n`
+			})
+			orderText += `━━━━━━━━━━━━━━━━━━\n`
+			orderText += `💵 *Umumiy: ${formatPrice(total)} so'm*`
+
 			tg.sendData(
 				JSON.stringify({
-					action: "checkout",
+					type: "order",
 					items: cart,
-					total: total.toFixed(2),
+					total: total,
+					orderText: orderText,
 				})
 			)
 		} else {
 			toast.success("Buyurtma qabul qilindi!")
-			setCart([])
-			setIsCartOpen(false)
+			console.log("Order:", cart, "Total:", total)
 		}
-	}
 
-	const openProductModal = (product) => {
-		setSelectedProduct(product)
-		document.body.style.overflow = "hidden"
-
-		setTimeout(() => {
-			gsap.fromTo(
-				productModalRef.current,
-				{ opacity: 0, y: 100 },
-				{ opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }
-			)
-		}, 10)
-	}
-
-	const closeProductModal = () => {
-		gsap.to(productModalRef.current, {
-			opacity: 0,
-			y: 100,
-			duration: 0.3,
-			ease: "power3.in",
-			onComplete: () => {
-				setSelectedProduct(null)
-				document.body.style.overflow = ""
-			},
-		})
-	}
-
-	const openCart = () => {
-		setIsCartOpen(true)
-		document.body.style.overflow = "hidden"
-		setTimeout(() => {
-			gsap.fromTo(
-				cartPanelRef.current,
-				{ x: "100%" },
-				{ x: "0%", duration: 0.35, ease: "power3.out" }
-			)
-		}, 10)
-	}
-
-	const closeCart = () => {
-		gsap.to(cartPanelRef.current, {
-			x: "100%",
-			duration: 0.3,
-			ease: "power3.in",
-			onComplete: () => {
-				setIsCartOpen(false)
-				document.body.style.overflow = ""
-			},
-		})
-	}
-
-	// Loading Skeleton
-	if (loading) {
-		return (
-			<div className='min-h-screen bg-gradient-to-b from-pink-50 via-white to-purple-50'>
-				{/* Skeleton Header */}
-				<div className='sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-pink-100 px-4 py-3'>
-					<div className='flex items-center justify-between'>
-						<div className='flex items-center gap-3'>
-							<div className='w-11 h-11 rounded-2xl shimmer bg-pink-100' />
-							<div className='space-y-2'>
-								<div className='h-4 w-24 shimmer rounded bg-pink-100' />
-								<div className='h-3 w-16 shimmer rounded bg-pink-100' />
-							</div>
-						</div>
-						<div className='w-11 h-11 rounded-2xl shimmer bg-pink-100' />
-					</div>
-				</div>
-
-				{/* Skeleton Grid */}
-				<div className='px-4 py-6'>
-					<div className='grid grid-cols-2 gap-3 sm:gap-4'>
-						{[...Array(6)].map((_, i) => (
-							<div key={i} className='bg-white rounded-2xl p-3 shadow-sm'>
-								<div className='aspect-square shimmer rounded-xl bg-pink-50 mb-3' />
-								<div className='h-4 shimmer rounded bg-pink-50 mb-2' />
-								<div className='h-3 shimmer rounded bg-pink-50 w-2/3' />
-							</div>
-						))}
-					</div>
-				</div>
-			</div>
-		)
+		setCart([])
+		setIsCartOpen(false)
 	}
 
 	return (
-		<div className='min-h-screen bg-gradient-to-b from-pink-50 via-white to-purple-50'>
-			{/* Header */}
-			<header
-				ref={headerRef}
-				className='sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-pink-100 safe-area-top'
-			>
-				<div className='px-4 py-3'>
-					<div className='flex items-center justify-between'>
-						{/* Logo */}
-						<div className='flex items-center gap-3'>
-							<div className='w-11 h-11 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-500/25'>
-								<Sparkles className='w-5 h-5 text-white' />
-							</div>
-							<div>
-								<h1 className='text-lg font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent'>
-									Cosmetic Shop
-								</h1>
-								<p className='text-[11px] text-gray-500'>
-									{products.length} ta mahsulot
-								</p>
-							</div>
-						</div>
+		<Layout>
+			<Navbar cartCount={totalItems} />
 
-						{/* Right Actions */}
-						<div className='flex items-center gap-2'>
-							{/* Admin Link */}
-							<button
-								onClick={() => navigate("/admin")}
-								className='w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-all active:scale-95'
-							>
-								<Settings className='w-5 h-5 text-gray-600' />
-							</button>
+			{/* Hero Section */}
+			<section className='relative min-h-screen pt-24 pb-16 overflow-hidden'>
+				{/* Background Shapes */}
+				<div className='absolute top-20 right-10 w-72 h-72 bg-purple-200/40 rounded-full blur-3xl floating-shape' />
+				<div className='absolute bottom-20 left-10 w-96 h-96 bg-emerald-200/30 rounded-full blur-3xl floating-shape' />
+				<div className='absolute top-1/2 right-1/4 w-64 h-64 bg-amber-200/20 rounded-full blur-3xl floating-shape' />
 
-							{/* Cart Button */}
-							<button
-								ref={cartBtnRef}
-								onClick={openCart}
-								className='relative w-11 h-11 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-500/25 active:scale-95 transition-transform'
-							>
-								<ShoppingCart className='w-5 h-5 text-white' />
-								{totalItems > 0 && (
-									<span className='absolute -top-1.5 -right-1.5 min-w-[20px] h-5 bg-red-500 rounded-full text-white text-[11px] font-bold flex items-center justify-center px-1 shadow-lg animate-bounce'>
-										{totalItems}
-									</span>
-								)}
-							</button>
-						</div>
-					</div>
+				<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+					<div className='grid lg:grid-cols-2 gap-12 items-center min-h-[70vh]'>
+						{/* Left Content */}
+						<div className='relative z-10'>
+							{/* Badge */}
+							<Badge className='hero-cta mb-6 px-4 py-2 bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'>
+								<Sparkles className='w-4 h-4 mr-2' />
+								Yangi kolleksiya 2026
+							</Badge>
 
-					{/* Search Bar */}
-					<div className='mt-3 relative'>
-						<Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' />
-						<input
-							type='text'
-							placeholder='Mahsulot qidirish...'
-							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
-							className='w-full bg-gray-100 rounded-xl py-2.5 pl-10 pr-4 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500/30 focus:bg-white transition-all'
-						/>
-					</div>
-				</div>
-			</header>
+							<h1 className='hero-title text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight mb-6'>
+								Sifatli{" "}
+								<span className='bg-gradient-to-r from-purple-600 via-purple-500 to-emerald-500 bg-clip-text text-transparent'>
+									mahsulotlar
+								</span>{" "}
+								eng yaxshi narxlarda
+							</h1>
 
-			{/* Products Grid */}
-			<main ref={productsRef} className='px-4 py-4 pb-24'>
-				{filteredProducts.length === 0 ? (
-					<div className='text-center py-16'>
-						<Package className='w-16 h-16 mx-auto text-gray-300 mb-4' />
-						<h3 className='text-lg font-semibold text-gray-500 mb-1'>
-							{searchTerm ? "Hech narsa topilmadi" : "Mahsulotlar yo'q"}
-						</h3>
-						<p className='text-sm text-gray-400'>
-							{searchTerm
-								? "Boshqa so'z bilan qidiring"
-								: "Tez orada yangi mahsulotlar qo'shiladi"}
-						</p>
-					</div>
-				) : (
-					<div className='grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4'>
-						{filteredProducts.map((product) => (
-							<div
-								key={product._id}
-								className='product-item bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group'
-							>
-								{/* Image Container */}
-								<div
-									className='relative aspect-square overflow-hidden cursor-pointer'
-									onClick={() => openProductModal(product)}
+							<p className='hero-subtitle text-lg sm:text-xl text-slate-600 mb-8 max-w-lg'>
+								Bizning onlayn do'konimizda minglab mahsulotlarni kashf eting.
+								Tez yetkazib berish va sifat kafolati bilan.
+							</p>
+
+							<div className='hero-cta flex flex-wrap gap-4'>
+								<Button
+									asChild
+									size='lg'
+									className='group bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transition-all duration-300 rounded-2xl px-8 py-6 text-base'
 								>
-									{product.image ? (
-										<img
-											src={getImageUrl(product.image)}
-											alt={product.name}
-											className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'
-											loading='lazy'
-										/>
-									) : (
-										<div className='w-full h-full bg-gradient-to-br from-pink-100 to-purple-100 flex items-center justify-center'>
-											<Package className='w-10 h-10 text-pink-300' />
-										</div>
-									)}
+									<a href='#products'>
+										<ShoppingBag className='w-5 h-5 mr-2' />
+										Xarid qilish
+										<ArrowRight className='w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform' />
+									</a>
+								</Button>
+								<Button
+									variant='outline'
+									size='lg'
+									onClick={() => setIsCartOpen(true)}
+									className='rounded-2xl px-8 py-6 text-base border-2 hover:border-purple-300 hover:text-purple-600'
+								>
+									<ShoppingCart className='w-5 h-5 mr-2' />
+									Savat ({totalItems})
+								</Button>
+							</div>
 
-									{/* Favorite Button */}
-									<button
-										className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 ${
-											favorites.includes(product._id)
-												? "bg-pink-500 text-white"
-												: "bg-white/95 text-pink-500 hover:bg-pink-50"
-										}`}
-										onClick={(e) => {
-											e.stopPropagation()
-											toggleFavorite(product._id)
-										}}
-									>
-										<Heart
-											className={`w-4 h-4 ${
-												favorites.includes(product._id) ? "fill-white" : ""
-											}`}
-										/>
-									</button>
-								</div>
-
-								{/* Info */}
-								<div className='p-3'>
-									<h3
-										className='font-semibold text-gray-800 text-sm line-clamp-1 cursor-pointer'
-										onClick={() => openProductModal(product)}
-									>
-										{product.name}
-									</h3>
-									<p className='text-[11px] text-gray-500 mt-0.5 line-clamp-1'>
-										{product.description || "Kosmetika mahsuloti"}
+							{/* Stats */}
+							<div className='grid grid-cols-3 gap-6 mt-12 pt-8 border-t border-slate-200'>
+								<div>
+									<p className='text-3xl font-bold text-purple-600'>
+										{products.length}+
 									</p>
-
-									<div className='flex items-center justify-between mt-2'>
-										<span className='text-base font-bold text-pink-600'>
-											${product.price}
-										</span>
-
-										<button
-											onClick={(e) => {
-												e.stopPropagation()
-												addToCart(product)
-											}}
-											className='w-8 h-8 bg-gradient-to-br from-pink-500 to-purple-600 rounded-lg flex items-center justify-center shadow-md active:scale-90 transition-transform'
-										>
-											<Plus className='w-4 h-4 text-white' />
-										</button>
-									</div>
+									<p className='text-sm text-slate-500'>Mahsulotlar</p>
+								</div>
+								<div>
+									<p className='text-3xl font-bold text-emerald-600'>50K+</p>
+									<p className='text-sm text-slate-500'>Mijozlar</p>
+								</div>
+								<div>
+									<p className='text-3xl font-bold text-amber-600'>4.9</p>
+									<p className='text-sm text-slate-500'>Reyting</p>
 								</div>
 							</div>
+						</div>
+
+						{/* Right Image */}
+						<div className='hero-image relative hidden lg:block'>
+							<div className='relative z-10'>
+								<Card className='relative border-0 bg-gradient-to-br from-purple-100 via-white to-emerald-100 rounded-[3rem] p-8 shadow-2xl shadow-purple-500/10'>
+									<img
+										src='https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=600&fit=crop'
+										alt='Shopping'
+										className='w-full h-auto rounded-2xl'
+									/>
+
+									{/* Floating Cards */}
+									<Card className='absolute -left-8 top-1/4 p-4 shadow-xl animate-bounce border-0'>
+										<div className='flex items-center gap-3'>
+											<div className='w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center'>
+												<Truck className='w-6 h-6 text-purple-600' />
+											</div>
+											<div>
+												<p className='font-semibold text-slate-800'>
+													Tez yetkazish
+												</p>
+												<p className='text-xs text-slate-500'>24 soat ichida</p>
+											</div>
+										</div>
+									</Card>
+
+									<Card className='absolute -right-4 bottom-1/4 p-4 shadow-xl border-0'>
+										<div className='flex items-center gap-3'>
+											<div className='w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center'>
+												<Shield className='w-6 h-6 text-emerald-600' />
+											</div>
+											<div>
+												<p className='font-semibold text-slate-800'>Kafolat</p>
+												<p className='text-xs text-slate-500'>100% sifat</p>
+											</div>
+										</div>
+									</Card>
+								</Card>
+							</div>
+
+							{/* Background decoration */}
+							<div className='absolute -inset-4 bg-gradient-to-r from-purple-600/10 to-emerald-600/10 rounded-[4rem] blur-2xl -z-10' />
+						</div>
+					</div>
+
+					{/* Features */}
+					<div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-16'>
+						{[
+							{
+								icon: Truck,
+								title: "Bepul yetkazish",
+								desc: "100 000 so'mdan yuqori",
+								bgColor: "bg-purple-100",
+								iconColor: "text-purple-600",
+							},
+							{
+								icon: Shield,
+								title: "Xavfsiz to'lov",
+								desc: "100% himoyalangan",
+								bgColor: "bg-emerald-100",
+								iconColor: "text-emerald-600",
+							},
+							{
+								icon: HeadphonesIcon,
+								title: "24/7 Yordam",
+								desc: "Professional qo'llab",
+								bgColor: "bg-amber-100",
+								iconColor: "text-amber-600",
+							},
+							{
+								icon: Package,
+								title: "Qaytarish",
+								desc: "14 kun ichida",
+								bgColor: "bg-rose-100",
+								iconColor: "text-rose-600",
+							},
+						].map((feature, i) => (
+							<Card
+								key={i}
+								className='feature-card group p-6 border border-slate-100 hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/5 transition-all duration-300 cursor-pointer'
+							>
+								<div
+									className={`w-14 h-14 ${feature.bgColor} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
+								>
+									<feature.icon className={`w-7 h-7 ${feature.iconColor}`} />
+								</div>
+								<h3 className='font-semibold text-slate-800 mb-1'>
+									{feature.title}
+								</h3>
+								<p className='text-sm text-slate-500'>{feature.desc}</p>
+							</Card>
 						))}
 					</div>
-				)}
-			</main>
+				</div>
+			</section>
+
+			{/* Products Section */}
+			<section
+				id='products'
+				ref={productsRef}
+				className='py-20 bg-gradient-to-b from-transparent to-white'
+			>
+				<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+					{/* Section Header */}
+					<div className='flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12'>
+						<div>
+							<Badge
+								variant='outline'
+								className='mb-2 text-purple-600 border-purple-200'
+							>
+								Bizning mahsulotlar
+							</Badge>
+							<h2 className='text-3xl sm:text-4xl font-bold text-slate-900 mt-2'>
+								Eng yaxshi{" "}
+								<span className='bg-gradient-to-r from-purple-600 to-emerald-500 bg-clip-text text-transparent'>
+									tanlovlar
+								</span>
+							</h2>
+						</div>
+
+						{/* Filters */}
+						<div className='flex flex-wrap items-center gap-4'>
+							{/* Search */}
+							<div className='relative'>
+								<Search className='absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400' />
+								<Input
+									type='text'
+									placeholder='Qidirish...'
+									value={searchTerm}
+									onChange={(e) => setSearchTerm(e.target.value)}
+									className='pl-12 pr-4 py-3 h-12 border-2 rounded-xl focus:border-purple-500 w-full sm:w-64'
+								/>
+							</div>
+
+							{/* Sort */}
+							<div className='relative'>
+								<select
+									value={sortBy}
+									onChange={(e) => setSortBy(e.target.value)}
+									className='appearance-none pl-4 pr-10 py-3 h-12 bg-white border-2 border-slate-200 rounded-xl focus:border-purple-500 focus:outline-none transition-colors cursor-pointer'
+								>
+									<option value='newest'>Eng yangi</option>
+									<option value='price-low'>Narx: past → yuqori</option>
+									<option value='price-high'>Narx: yuqori → past</option>
+									<option value='name'>Nomi bo'yicha</option>
+								</select>
+								<ChevronDown className='absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none' />
+							</div>
+
+							{/* View Toggle */}
+							<div className='flex bg-white border-2 border-slate-200 rounded-xl overflow-hidden'>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											variant='ghost'
+											size='icon'
+											onClick={() => setViewMode("grid")}
+											className={`rounded-none ${
+												viewMode === "grid"
+													? "bg-purple-600 text-white hover:bg-purple-700"
+													: "text-slate-600 hover:bg-slate-50"
+											}`}
+										>
+											<Grid className='w-5 h-5' />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Grid ko'rinish</TooltipContent>
+								</Tooltip>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											variant='ghost'
+											size='icon'
+											onClick={() => setViewMode("list")}
+											className={`rounded-none ${
+												viewMode === "list"
+													? "bg-purple-600 text-white hover:bg-purple-700"
+													: "text-slate-600 hover:bg-slate-50"
+											}`}
+										>
+											<List className='w-5 h-5' />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>List ko'rinish</TooltipContent>
+								</Tooltip>
+							</div>
+						</div>
+					</div>
+
+					{/* Loading State */}
+					{loading ? (
+						<div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'>
+							{[...Array(8)].map((_, i) => (
+								<Card key={i} className='overflow-hidden'>
+									<Skeleton className='aspect-square w-full' />
+									<CardContent className='p-5 space-y-3'>
+										<div className='flex gap-1'>
+											{[...Array(5)].map((_, j) => (
+												<Skeleton key={j} className='w-4 h-4 rounded' />
+											))}
+										</div>
+										<Skeleton className='h-5 w-3/4' />
+										<Skeleton className='h-4 w-1/2' />
+										<div className='flex justify-between items-end pt-2'>
+											<Skeleton className='h-8 w-1/3' />
+											<Skeleton className='h-6 w-1/4' />
+										</div>
+									</CardContent>
+								</Card>
+							))}
+						</div>
+					) : filteredProducts.length === 0 ? (
+						<Card className='text-center py-20 border-dashed'>
+							<CardContent className='pt-6'>
+								<Package className='w-20 h-20 text-slate-300 mx-auto mb-4' />
+								<h3 className='text-xl font-semibold text-slate-600 mb-2'>
+									Mahsulotlar topilmadi
+								</h3>
+								<p className='text-slate-500'>
+									Boshqa kalit so'z bilan qidirib ko'ring
+								</p>
+							</CardContent>
+						</Card>
+					) : (
+						<div
+							className={`grid gap-6 ${
+								viewMode === "grid"
+									? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+									: "grid-cols-1"
+							}`}
+						>
+							{filteredProducts.map((product, index) => (
+								<ProductCard
+									key={product._id}
+									product={product}
+									index={index}
+									viewMode={viewMode}
+									isFavorite={favorites.includes(product._id)}
+									onToggleFavorite={() => toggleFavorite(product._id)}
+									onAddToCart={() => addToCart(product)}
+									onViewDetails={() => setSelectedProduct(product)}
+									getImageUrl={getImageUrl}
+									formatPrice={formatPrice}
+								/>
+							))}
+						</div>
+					)}
+				</div>
+			</section>
 
 			{/* Floating Cart Button (Mobile) */}
-			{totalItems > 0 && !isCartOpen && (
-				<div className='fixed bottom-4 left-4 right-4 z-30 md:hidden'>
-					<button
-						onClick={openCart}
-						className='w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white py-3.5 px-5 rounded-2xl shadow-xl shadow-pink-500/30 flex items-center justify-between active:scale-[0.98] transition-transform'
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						ref={cartBtnRef}
+						onClick={() => setIsCartOpen(true)}
+						className='fixed bottom-6 right-6 z-40 w-16 h-16 bg-gradient-to-r from-purple-600 to-emerald-500 rounded-full shadow-2xl shadow-purple-500/30 md:hidden hover:scale-110 transition-transform'
+						size='icon'
 					>
-						<div className='flex items-center gap-3'>
-							<div className='w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center'>
-								<ShoppingCart className='w-5 h-5' />
+						<ShoppingCart className='w-7 h-7' />
+						{totalItems > 0 && (
+							<span className='absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse'>
+								{totalItems}
+							</span>
+						)}
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent side='left'>Savat</TooltipContent>
+			</Tooltip>
+
+			{/* Cart Sidebar - Using Sheet */}
+			<Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+				<SheetContent className='w-full sm:max-w-md p-0 flex flex-col'>
+					<SheetHeader className='p-6 border-b'>
+						<SheetTitle className='flex items-center gap-2'>
+							<ShoppingCart className='w-5 h-5 text-purple-600' />
+							Savatingiz
+							<Badge variant='secondary' className='ml-2'>
+								{totalItems} ta mahsulot
+							</Badge>
+						</SheetTitle>
+					</SheetHeader>
+
+					<ScrollArea className='flex-1 p-6'>
+						{cart.length === 0 ? (
+							<div className='text-center py-12'>
+								<ShoppingCart className='w-16 h-16 text-slate-300 mx-auto mb-4' />
+								<h3 className='text-lg font-semibold text-slate-600 mb-2'>
+									Savat bo'sh
+								</h3>
+								<p className='text-slate-500 text-sm'>
+									Mahsulotlarni qo'shishni boshlang
+								</p>
 							</div>
-							<span className='font-semibold'>{totalItems} ta mahsulot</span>
-						</div>
-						<div className='flex items-center gap-2'>
-							<span className='font-bold text-lg'>${total.toFixed(2)}</span>
-							<ArrowRight className='w-5 h-5' />
-						</div>
-					</button>
-				</div>
-			)}
+						) : (
+							<div className='space-y-4'>
+								{cart.map((item) => (
+									<Card
+										key={item._id}
+										data-cart-item={item._id}
+										className='cart-item p-4'
+									>
+										<div className='flex gap-4'>
+											<img
+												src={getImageUrl(item.image)}
+												alt={item.name}
+												className='w-20 h-20 object-cover rounded-xl'
+												onError={(e) => {
+													e.target.src =
+														"https://via.placeholder.com/80x80?text=No+Image"
+												}}
+											/>
+											<div className='flex-1'>
+												<h4 className='font-semibold text-slate-800 line-clamp-1'>
+													{item.name}
+												</h4>
+												<p className='text-purple-600 font-bold'>
+													{formatPrice(item.price)} so'm
+												</p>
+												<div className='flex items-center justify-between mt-2'>
+													<div className='flex items-center gap-2'>
+														<Button
+															variant='outline'
+															size='icon'
+															className='w-8 h-8'
+															onClick={() => updateQuantity(item._id, -1)}
+														>
+															<Minus className='w-4 h-4' />
+														</Button>
+														<span className='w-8 text-center font-semibold'>
+															{item.quantity}
+														</span>
+														<Button
+															variant='outline'
+															size='icon'
+															className='w-8 h-8'
+															onClick={() => updateQuantity(item._id, 1)}
+														>
+															<Plus className='w-4 h-4' />
+														</Button>
+													</div>
+													<Tooltip>
+														<TooltipTrigger asChild>
+															<Button
+																variant='ghost'
+																size='icon'
+																className='text-red-500 hover:bg-red-50 hover:text-red-600'
+																onClick={() => removeFromCart(item._id)}
+															>
+																<Trash2 className='w-5 h-5' />
+															</Button>
+														</TooltipTrigger>
+														<TooltipContent>O'chirish</TooltipContent>
+													</Tooltip>
+												</div>
+											</div>
+										</div>
+									</Card>
+								))}
+							</div>
+						)}
+					</ScrollArea>
 
-			{/* Product Modal */}
-			{selectedProduct && (
-				<div
-					className='fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center'
-					onClick={closeProductModal}
-				>
-					<div
-						ref={productModalRef}
-						className='bg-white rounded-t-3xl w-full max-w-lg max-h-[90vh] overflow-hidden'
-						onClick={(e) => e.stopPropagation()}
-					>
-						{/* Handle Bar */}
-						<div className='flex justify-center pt-3 pb-2'>
-							<div className='w-10 h-1 bg-gray-300 rounded-full' />
-						</div>
+					{cart.length > 0 && (
+						<SheetFooter className='p-6 border-t bg-white'>
+							<div className='w-full space-y-4'>
+								<Separator />
+								<div className='flex justify-between items-center'>
+									<span className='text-slate-600'>Jami:</span>
+									<span className='text-2xl font-bold text-purple-600'>
+										{formatPrice(total)} so'm
+									</span>
+								</div>
+								<Button
+									onClick={sendOrder}
+									className='w-full h-14 bg-gradient-to-r from-purple-600 to-emerald-500 hover:from-purple-700 hover:to-emerald-600 text-lg rounded-2xl'
+								>
+									<ShoppingBag className='w-5 h-5 mr-2' />
+									Buyurtma berish
+								</Button>
+							</div>
+						</SheetFooter>
+					)}
+				</SheetContent>
+			</Sheet>
 
-						{/* Modal Image */}
-						<div className='relative aspect-[4/3] overflow-hidden'>
-							{selectedProduct.image ? (
+			{/* Product Modal - Using Dialog */}
+			<Dialog
+				open={!!selectedProduct}
+				onOpenChange={() => setSelectedProduct(null)}
+			>
+				<DialogContent className='max-w-2xl p-0 overflow-hidden'>
+					{selectedProduct && (
+						<div className='grid md:grid-cols-2'>
+							{/* Image */}
+							<div className='relative aspect-square bg-gradient-to-br from-slate-50 to-slate-100'>
 								<img
 									src={getImageUrl(selectedProduct.image)}
 									alt={selectedProduct.name}
 									className='w-full h-full object-cover'
+									onError={(e) => {
+										e.target.src =
+											"https://via.placeholder.com/400x400?text=No+Image"
+									}}
 								/>
-							) : (
-								<div className='w-full h-full bg-gradient-to-br from-pink-100 to-purple-100 flex items-center justify-center'>
-									<Package className='w-20 h-20 text-pink-300' />
-								</div>
-							)}
+							</div>
 
-							<button
-								onClick={closeProductModal}
-								className='absolute top-3 right-3 w-9 h-9 bg-black/40 backdrop-blur rounded-full flex items-center justify-center active:scale-90 transition-transform'
-							>
-								<X className='w-5 h-5 text-white' />
-							</button>
-
-							{/* Favorite on Modal */}
-							<button
-								onClick={() => toggleFavorite(selectedProduct._id)}
-								className={`absolute top-3 left-3 w-9 h-9 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all ${
-									favorites.includes(selectedProduct._id)
-										? "bg-pink-500 text-white"
-										: "bg-white text-pink-500"
-								}`}
-							>
-								<Heart
-									className={`w-5 h-5 ${
-										favorites.includes(selectedProduct._id) ? "fill-white" : ""
-									}`}
-								/>
-							</button>
-						</div>
-
-						{/* Modal Content */}
-						<div className='p-5 space-y-4 safe-area-bottom'>
-							<div className='flex items-start justify-between gap-3'>
-								<div className='flex-1'>
-									<h2 className='text-xl font-bold text-gray-800'>
-										{selectedProduct.name}
-									</h2>
-									<div className='flex items-center gap-1 mt-1.5'>
+							{/* Content */}
+							<div className='p-6 flex flex-col'>
+								<DialogHeader>
+									{/* Rating */}
+									<div className='flex items-center gap-1 mb-3'>
 										{[...Array(5)].map((_, i) => (
 											<Star
 												key={i}
-												className='w-3.5 h-3.5 fill-yellow-400 text-yellow-400'
+												className={`w-5 h-5 ${
+													i < 4
+														? "text-amber-400 fill-amber-400"
+														: "text-slate-200"
+												}`}
 											/>
 										))}
-										<span className='text-xs text-gray-500 ml-1'>
-											(128 baho)
-										</span>
+										<span className='text-sm text-slate-400 ml-2'>(128)</span>
 									</div>
-								</div>
-								<span className='text-2xl font-bold text-pink-600'>
-									${selectedProduct.price}
-								</span>
-							</div>
 
-							<p className='text-sm text-gray-600 leading-relaxed'>
-								{selectedProduct.description ||
-									"Premium sifatli kosmetika mahsuloti. Tabiiy ingredientlardan tayyorlangan. Teri uchun xavfsiz va samarali."}
-							</p>
+									<DialogTitle className='text-2xl'>
+										{selectedProduct.name}
+									</DialogTitle>
+								</DialogHeader>
 
-							<button
-								onClick={() => {
-									addToCart(selectedProduct)
-									closeProductModal()
-								}}
-								className='w-full py-3.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-2xl shadow-lg shadow-pink-500/25 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform'
-							>
-								<ShoppingCart className='w-5 h-5' />
-								Savatga qo'shish
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
-
-			{/* Cart Drawer */}
-			{isCartOpen && (
-				<div className='fixed inset-0 z-50'>
-					<div
-						className='absolute inset-0 bg-black/60 backdrop-blur-sm'
-						onClick={closeCart}
-					/>
-
-					<div
-						ref={cartPanelRef}
-						className='absolute right-0 top-0 bottom-0 w-full max-w-sm bg-white shadow-2xl flex flex-col'
-					>
-						{/* Cart Header */}
-						<div className='flex items-center justify-between p-4 border-b bg-white'>
-							<div className='flex items-center gap-3'>
-								<div className='w-10 h-10 bg-gradient-to-br from-pink-500 to-purple-600 rounded-xl flex items-center justify-center'>
-									<ShoppingCart className='w-5 h-5 text-white' />
-								</div>
-								<div>
-									<h2 className='font-bold text-lg'>Savat</h2>
-									<p className='text-xs text-gray-500'>
-										{totalItems} ta mahsulot
+								{selectedProduct.description && (
+									<p className='text-slate-600 my-4'>
+										{selectedProduct.description}
 									</p>
-								</div>
-							</div>
+								)}
 
-							<button
-								onClick={closeCart}
-								className='w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all'
-							>
-								<X className='w-5 h-5 text-gray-600' />
-							</button>
-						</div>
-
-						{/* Cart Items */}
-						<div className='flex-1 overflow-y-auto p-4 space-y-3'>
-							{cart.length === 0 ? (
-								<div className='text-center py-16'>
-									<ShoppingCart className='w-14 h-14 mx-auto text-gray-300 mb-3' />
-									<p className='text-gray-500 font-medium'>Savat bo'sh</p>
-									<p className='text-sm text-gray-400 mt-1'>
-										Mahsulot qo'shing
-									</p>
-								</div>
-							) : (
-								cart.map((item) => (
-									<div
-										key={item._id}
-										data-cart-item={item._id}
-										className='bg-gray-50 rounded-2xl p-3 flex items-center gap-3'
-									>
-										{/* Item Image */}
-										<div className='w-16 h-16 rounded-xl overflow-hidden flex-shrink-0'>
-											{item.image ? (
-												<img
-													src={getImageUrl(item.image)}
-													alt={item.name}
-													className='w-full h-full object-cover'
-												/>
-											) : (
-												<div className='w-full h-full bg-pink-100 flex items-center justify-center'>
-													<Package className='w-6 h-6 text-pink-300' />
-												</div>
-											)}
-										</div>
-
-										{/* Item Info */}
-										<div className='flex-1 min-w-0'>
-											<h4 className='font-semibold text-sm text-gray-800 truncate'>
-												{item.name}
-											</h4>
-											<p className='text-pink-600 font-bold text-sm mt-0.5'>
-												${(item.price * item.quantity).toFixed(2)}
-											</p>
-										</div>
-
-										{/* Quantity Controls */}
-										<div className='flex items-center gap-1.5'>
-											<button
-												onClick={() => updateQuantity(item._id, -1)}
-												className='w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-sm active:scale-90 transition-transform'
-											>
-												<Minus className='w-3.5 h-3.5 text-gray-600' />
-											</button>
-
-											<span className='w-6 text-center font-semibold text-sm'>
-												{item.quantity}
-											</span>
-
-											<button
-												onClick={() => updateQuantity(item._id, 1)}
-												className='w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-sm active:scale-90 transition-transform'
-											>
-												<Plus className='w-3.5 h-3.5 text-gray-600' />
-											</button>
-										</div>
-
-										{/* Remove Button */}
-										<button
-											onClick={() => removeFromCart(item._id)}
-											className='w-7 h-7 bg-red-50 rounded-lg flex items-center justify-center active:scale-90 transition-transform'
-										>
-											<Trash2 className='w-3.5 h-3.5 text-red-500' />
-										</button>
-									</div>
-								))
-							)}
-						</div>
-
-						{/* Cart Footer */}
-						{cart.length > 0 && (
-							<div className='p-4 border-t bg-white safe-area-bottom'>
-								<div className='flex items-center justify-between mb-4'>
-									<span className='text-gray-600'>Jami:</span>
-									<span className='font-bold text-2xl text-pink-600'>
-										${total.toFixed(2)}
+								<div className='flex items-center gap-2 mb-6'>
+									<span className='text-3xl font-bold text-purple-600'>
+										{formatPrice(selectedProduct.price)}
 									</span>
+									<span className='text-slate-500'>so'm</span>
 								</div>
 
-								<button
-									onClick={handleCheckout}
-									className='w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-2xl shadow-lg shadow-green-500/25 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform'
+								<Badge
+									variant='outline'
+									className='w-fit mb-6 text-emerald-600 border-emerald-200'
 								>
-									Buyurtma berish
-									<ChevronRight className='w-5 h-5' />
-								</button>
+									<span className='w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse' />
+									Mavjud
+								</Badge>
+
+								{/* Actions */}
+								<div className='mt-auto space-y-3'>
+									<Button
+										onClick={() => {
+											addToCart(selectedProduct)
+											setSelectedProduct(null)
+										}}
+										className='w-full h-14 bg-gradient-to-r from-purple-600 to-emerald-500 hover:from-purple-700 hover:to-emerald-600 rounded-2xl'
+									>
+										<ShoppingCart className='w-5 h-5 mr-2' />
+										Savatga qo'shish
+									</Button>
+									<Button
+										variant='outline'
+										onClick={() => toggleFavorite(selectedProduct._id)}
+										className={`w-full h-14 rounded-2xl ${
+											favorites.includes(selectedProduct._id)
+												? "bg-red-50 text-red-500 border-red-200 hover:bg-red-100"
+												: "hover:border-red-200 hover:text-red-500"
+										}`}
+									>
+										<Heart
+											className={`w-5 h-5 mr-2 ${
+												favorites.includes(selectedProduct._id)
+													? "fill-red-500"
+													: ""
+											}`}
+										/>
+										{favorites.includes(selectedProduct._id)
+											? "Sevimlilardan o'chirish"
+											: "Sevimlilarga qo'shish"}
+									</Button>
+								</div>
 							</div>
-						)}
+						</div>
+					)}
+				</DialogContent>
+			</Dialog>
+
+			<Footer />
+		</Layout>
+	)
+}
+
+// Product Card Component
+const ProductCard = ({
+	product,
+	index,
+	viewMode,
+	isFavorite,
+	onToggleFavorite,
+	onAddToCart,
+	onViewDetails,
+	getImageUrl,
+	formatPrice,
+}) => {
+	const cardRef = useRef(null)
+
+	useEffect(() => {
+		gsap.fromTo(
+			cardRef.current,
+			{ opacity: 0, y: 50, scale: 0.9 },
+			{
+				opacity: 1,
+				y: 0,
+				scale: 1,
+				duration: 0.6,
+				delay: index * 0.05,
+				ease: "power3.out",
+			}
+		)
+	}, [index])
+
+	const handleMouseEnter = () => {
+		if (viewMode === "grid") {
+			gsap.to(cardRef.current, {
+				y: -10,
+				scale: 1.02,
+				duration: 0.3,
+				ease: "power2.out",
+			})
+			gsap.to(cardRef.current.querySelector(".card-image"), {
+				scale: 1.1,
+				duration: 0.4,
+				ease: "power2.out",
+			})
+			gsap.to(cardRef.current.querySelector(".card-actions"), {
+				opacity: 1,
+				y: 0,
+				duration: 0.3,
+				ease: "power2.out",
+			})
+		}
+	}
+
+	const handleMouseLeave = () => {
+		if (viewMode === "grid") {
+			gsap.to(cardRef.current, {
+				y: 0,
+				scale: 1,
+				duration: 0.3,
+				ease: "power2.out",
+			})
+			gsap.to(cardRef.current.querySelector(".card-image"), {
+				scale: 1,
+				duration: 0.4,
+				ease: "power2.out",
+			})
+			gsap.to(cardRef.current.querySelector(".card-actions"), {
+				opacity: 0,
+				y: 20,
+				duration: 0.3,
+				ease: "power2.out",
+			})
+		}
+	}
+
+	if (viewMode === "list") {
+		return (
+			<Card
+				ref={cardRef}
+				className='product-card overflow-hidden hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300'
+			>
+				<CardContent className='flex gap-6 p-4'>
+					<div className='relative w-32 h-32 flex-shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100'>
+						<img
+							src={getImageUrl(product.image)}
+							alt={product.name}
+							className='w-full h-full object-cover'
+							onError={(e) => {
+								e.target.src =
+									"https://via.placeholder.com/150x150?text=No+Image"
+							}}
+						/>
 					</div>
+					<div className='flex-1 flex flex-col'>
+						<div className='flex items-center gap-1 mb-2'>
+							{[...Array(5)].map((_, i) => (
+								<Star
+									key={i}
+									className={`w-4 h-4 ${
+										i < 4 ? "text-amber-400 fill-amber-400" : "text-slate-200"
+									}`}
+								/>
+							))}
+							<span className='text-xs text-slate-400 ml-1'>(128)</span>
+						</div>
+						<h3 className='font-semibold text-slate-800 mb-1'>
+							{product.name}
+						</h3>
+						{product.description && (
+							<p className='text-sm text-slate-500 line-clamp-2 mb-2'>
+								{product.description}
+							</p>
+						)}
+						<div className='mt-auto flex items-center justify-between'>
+							<p className='text-xl font-bold text-purple-600'>
+								{formatPrice(product.price)}{" "}
+								<span className='text-sm font-normal'>so'm</span>
+							</p>
+							<div className='flex items-center gap-2'>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											variant='outline'
+											size='icon'
+											onClick={onToggleFavorite}
+											className={`${
+												isFavorite
+													? "bg-red-50 text-red-500 border-red-200"
+													: "hover:bg-red-50 hover:text-red-500"
+											}`}
+										>
+											<Heart
+												className={`w-5 h-5 ${
+													isFavorite ? "fill-red-500" : ""
+												}`}
+											/>
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Sevimli</TooltipContent>
+								</Tooltip>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											variant='outline'
+											size='icon'
+											onClick={onViewDetails}
+										>
+											<Eye className='w-5 h-5' />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Ko'rish</TooltipContent>
+								</Tooltip>
+								<Button
+									onClick={onAddToCart}
+									className='bg-gradient-to-r from-purple-600 to-emerald-500 hover:from-purple-700 hover:to-emerald-600'
+								>
+									<ShoppingCart className='w-4 h-4 mr-2' />
+									Savatga
+								</Button>
+							</div>
+						</div>
+					</div>
+				</CardContent>
+			</Card>
+		)
+	}
+
+	return (
+		<Card
+			ref={cardRef}
+			onMouseEnter={handleMouseEnter}
+			onMouseLeave={handleMouseLeave}
+			className='product-card group overflow-hidden hover:shadow-2xl hover:shadow-purple-500/10 transition-shadow duration-500'
+		>
+			{/* Image Container */}
+			<div className='relative aspect-square overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100'>
+				<img
+					src={getImageUrl(product.image)}
+					alt={product.name}
+					className='card-image w-full h-full object-cover transition-transform duration-500'
+					onError={(e) => {
+						e.target.src = "https://via.placeholder.com/300x300?text=No+Image"
+					}}
+				/>
+
+				{/* Badges */}
+				<div className='absolute top-4 left-4 flex flex-col gap-2'>
+					<Badge className='bg-gradient-to-r from-purple-600 to-purple-500 text-white border-0'>
+						Yangi
+					</Badge>
 				</div>
-			)}
-		</div>
+
+				{/* Favorite Button */}
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							variant='ghost'
+							size='icon'
+							onClick={onToggleFavorite}
+							className={`absolute top-4 right-4 w-10 h-10 backdrop-blur-sm rounded-full shadow-lg transition-all duration-300 ${
+								isFavorite
+									? "bg-red-500 text-white hover:bg-red-600"
+									: "bg-white/90 text-slate-600 opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500"
+							}`}
+						>
+							<Heart className={`w-5 h-5 ${isFavorite ? "fill-white" : ""}`} />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>Sevimli</TooltipContent>
+				</Tooltip>
+
+				{/* Action Buttons */}
+				<div className='card-actions absolute bottom-4 left-4 right-4 flex gap-2 opacity-0 translate-y-5'>
+					<Button
+						onClick={onAddToCart}
+						className='flex-1 bg-gradient-to-r from-purple-600 to-emerald-500 hover:from-purple-700 hover:to-emerald-600 rounded-xl'
+					>
+						<ShoppingCart className='w-4 h-4 mr-2' />
+						Savatga
+					</Button>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								variant='secondary'
+								size='icon'
+								onClick={onViewDetails}
+								className='w-12 h-10 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg hover:bg-purple-50 hover:text-purple-600'
+							>
+								<Eye className='w-5 h-5' />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>Ko'rish</TooltipContent>
+					</Tooltip>
+				</div>
+			</div>
+
+			{/* Content */}
+			<CardContent className='p-5'>
+				{/* Rating */}
+				<div className='flex items-center gap-1 mb-2'>
+					{[...Array(5)].map((_, i) => (
+						<Star
+							key={i}
+							className={`w-4 h-4 ${
+								i < 4 ? "text-amber-400 fill-amber-400" : "text-slate-200"
+							}`}
+						/>
+					))}
+					<span className='text-xs text-slate-400 ml-1'>(128)</span>
+				</div>
+
+				{/* Name */}
+				<h3 className='font-semibold text-slate-800 mb-2 line-clamp-2 group-hover:text-purple-600 transition-colors'>
+					{product.name}
+				</h3>
+
+				{/* Description */}
+				{product.description && (
+					<p className='text-sm text-slate-500 mb-3 line-clamp-2'>
+						{product.description}
+					</p>
+				)}
+
+				{/* Price */}
+				<div className='flex items-end justify-between'>
+					<div>
+						<p className='text-2xl font-bold text-purple-600'>
+							{formatPrice(product.price)}{" "}
+							<span className='text-sm font-normal'>so'm</span>
+						</p>
+					</div>
+					<Badge
+						variant='outline'
+						className='text-emerald-600 border-emerald-200'
+					>
+						<span className='w-2 h-2 bg-emerald-500 rounded-full mr-1 animate-pulse' />
+						Mavjud
+					</Badge>
+				</div>
+			</CardContent>
+		</Card>
 	)
 }
 

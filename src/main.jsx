@@ -1,10 +1,11 @@
 import ReactDOM from "react-dom/client"
 import { Toaster } from "react-hot-toast"
 import AppRouter from "./AppRouter"
+import { TooltipProvider } from "./components/ui/tooltip"
 import "./index.css"
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-	<>
+	<TooltipProvider>
 		<AppRouter />
 		<Toaster
 			position='top-center'
@@ -30,5 +31,5 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 				},
 			}}
 		/>
-	</>
+	</TooltipProvider>
 )
